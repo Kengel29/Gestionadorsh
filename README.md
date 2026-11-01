@@ -1,0 +1,2 @@
+# Gestionadorsh
+para uso personal

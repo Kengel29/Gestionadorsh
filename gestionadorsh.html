@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Cobros & Cuentas Netflix</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        netflix: {
+                            red: '#E50914',
+                            darkRed: '#B81D24',
+                            black: '#141414',
+                            gray: '#181818',
+                            lightGray: '#2F2F2F'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        @media print {
+            body { background: white !important; color: black !important; }
+            header, footer, button, .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="bg-indigo-600 p-2 rounded-xl text-white">
+                        <i class="fa-solid me-1 fa-wallet text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg leading-tight">ControlCobros</h1>
+                        <p class="text-xs text-slate-400">Gestión de Deudas & Netflix</p>
+                    </div>
+                </div>
+
+                <!-- Navegación y Botón de Respaldo Cloud / Exportación -->
+                <div class="flex items-center gap-3">
+                    <nav class="hidden sm:flex bg-slate-800 p-1 rounded-xl">
+                        <button id="tab-deudores-btn" onclick="switchTab('deudores')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 bg-indigo-600 text-white shadow">
+                            <i class="fa-solid fa-users"></i>
+                            <span>Deudas Generales</span>
+                        </button>
+                        <button id="tab-netflix-btn" onclick="switchTab('netflix')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 text-slate-300 hover:text-white">
+                            <i class="fa-brands fa-netflix text-netflix-red text-base"></i>
+                            <span>Control Netflix</span>
+                        </button>
+                    </nav>
+
+                    <!-- Menú Desplegable de Exportación y Sincronización -->
+                    <div class="relative">
+                        <button onclick="toggleExportMenu()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-cloud-arrow-down"></i>
+                            <span class="hidden md:inline">Exportar / Sincronizar</span>
+                        </button>
+                        <div id="export-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 text-slate-700">
+                            <div class="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Reportes y Archivos</div>
+                            <button onclick="exportToExcel()" class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2 text-emerald-600 font-medium">
+                                <i class="fa-solid fa-file-excel w-5"></i> Exportar a Excel (CSV)
+                            </button>
+                            <button onclick="exportToPDF()" class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2 text-rose-600 font-medium">
+                                <i class="fa-solid fa-file-pdf w-5"></i> Guardar como PDF / Imprimir
+                            </button>
+                            <div class="border-t border-slate-100 my-1"></div>
+                            <div class="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Pasar a otro Dispositivo</div>
+                            <button onclick="exportBackupJSON()" class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2 text-indigo-600 font-medium">
+                                <i class="fa-solid fa-file-export w-5"></i> Descargar Respaldo Total (.json)
+                            </button>
+                            <label class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-medium cursor-pointer">
+                                <i class="fa-solid fa-file-import w-5"></i> Cargar Respaldo en este equipo
+                                <input type="file" id="import-file" accept=".json" onchange="importBackupJSON(event)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Navegación móvil -->
+            <div class="flex sm:hidden bg-slate-800 p-1 rounded-xl mb-3">
+                <button id="tab-deudores-btn-m" onclick="switchTab('deudores')" class="flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2 bg-indigo-600 text-white shadow">
+                    <i class="fa-solid fa-users"></i> Deudas
+                </button>
+                <button id="tab-netflix-btn-m" onclick="switchTab('netflix')" class="flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2 text-slate-300">
+                    <i class="fa-brands fa-netflix text-netflix-red"></i> Netflix
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- =================I. SECCIÓN DEUDAS GENERALES ================= -->
+        <section id="section-deudores" class="space-y-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Pendiente</p>
+                        <h3 id="stat-general-pendiente" class="text-2xl font-bold text-slate-900">RD$ 0.00</h3>
+                        <span id="stat-general-count-pendiente" class="text-xs font-medium text-amber-600">0 deudores</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Cobrado</p>
+                        <h3 id="stat-general-pagado" class="text-2xl font-bold text-slate-900">RD$ 0.00</h3>
+                        <span id="stat-general-count-pagado" class="text-xs font-medium text-emerald-600">0 pagados</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-calculator"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Monto Gran Total</p>
+                        <h3 id="stat-general-total" class="text-2xl font-bold text-slate-900">RD$ 0.00</h3>
+                        <span class="text-xs text-slate-400">Total acumulado</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center">
+                    <button onclick="openDeudorModal()" class="w-full h-full min-h-[56px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus text-lg"></i>
+                        <span>Agregar Deudor</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Buscador y Filtros -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div class="relative w-full sm:w-80">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="search-deudor" oninput="renderDeudores()" placeholder="Buscar por nombre o concepto..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+                    <button onclick="setFilterDeudores('todos')" id="filter-btn-todos" class="flex-1 sm:flex-initial px-3 py-1.5 text-xs font-semibold rounded-lg bg-white shadow-sm text-indigo-600">Todos</button>
+                    <button onclick="setFilterDeudores('pendiente')" id="filter-btn-pendiente" class="flex-1 sm:flex-initial px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600">Pendientes</button>
+                    <button onclick="setFilterDeudores('pagado')" id="filter-btn-pagado" class="flex-1 sm:flex-initial px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600">Pagados</button>
+                </div>
+            </div>
+
+            <!-- Tabla de Deudores -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-xs uppercase tracking-wider">
+                                <th class="py-3.5 px-4">Deudor</th>
+                                <th class="py-3.5 px-4">Concepto</th>
+                                <th class="py-3.5 px-4">Fecha</th>
+                                <th class="py-3.5 px-4">Monto (RD$)</th>
+                                <th class="py-3.5 px-4 text-center">Estado</th>
+                                <th class="py-3.5 px-4 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deudores-list-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+                <div id="deudores-empty-state" class="hidden p-8 text-center text-slate-400">
+                    <i class="fa-solid fa-folder-open text-4xl mb-3 opacity-50"></i>
+                    <p class="text-base font-medium">No hay registros de deudas.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= II. SECCIÓN NETFLIX ================= -->
+        <section id="section-netflix" class="space-y-6 hidden">
+            <div class="bg-slate-900 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
+                <div class="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4">
+                    <i class="fa-brands fa-netflix text-9xl text-netflix-red"></i>
+                </div>
+                <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-netflix-red/20 text-netflix-red text-xs font-bold border border-netflix-red/30 mb-2">
+                            <i class="fa-solid fa-tv"></i> Cuenta Compartida Netflix
+                        </div>
+                        <h2 class="text-2xl font-extrabold tracking-tight">Próxima Fecha de Corte</h2>
+                        <p class="text-slate-400 text-sm mt-1">Renovación el día <span id="netflix-due-day-display" class="font-bold text-white">--</span> de cada mes.</p>
+                    </div>
+                    <div class="flex items-center gap-3 text-center">
+                        <div class="bg-slate-800/80 backdrop-blur-md px-4 py-3 rounded-2xl border border-slate-700 min-w-[70px]">
+                            <span id="countdown-days" class="block text-2xl font-black text-amber-400">00</span>
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Días</span>
+                        </div>
+                        <span class="text-xl font-bold text-slate-500">:</span>
+                        <div class="bg-slate-800/80 backdrop-blur-md px-4 py-3 rounded-2xl border border-slate-700 min-w-[70px]">
+                            <span id="countdown-hours" class="block text-2xl font-black text-white">00</span>
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Horas</span>
+                        </div>
+                        <span class="text-xl font-bold text-slate-500">:</span>
+                        <div class="bg-slate-800/80 backdrop-blur-md px-4 py-3 rounded-2xl border border-slate-700 min-w-[70px]">
+                            <span id="countdown-minutes" class="block text-2xl font-black text-white">00</span>
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Min</span>
+                        </div>
+                    </div>
+                    <button onclick="openConfigNetflixModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2">
+                        <i class="fa-solid fa-gear"></i> Configurar Cuenta
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Netflix -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-red-50 text-netflix-red flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Plan Mensual Total</p>
+                        <h3 id="stat-netflix-total-plan" class="text-2xl font-bold text-slate-900">RD$ 0.00</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Por Cobrar Este Mes</p>
+                        <h3 id="stat-netflix-por-cobrar" class="text-2xl font-bold text-slate-900">RD$ 0.00</h3>
+                        <span id="stat-netflix-sub-cobrar" class="text-xs font-medium text-amber-600">Excluye desvinculados</span>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-money-bill-trend-up"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Cobrado Este Mes</p>
+                        <h3 id="stat-netflix-recaudado" class="text-2xl font-bold text-slate-900">RD$ 0.00</h3>
+                        <span id="stat-netflix-count-pagados" class="text-xs font-medium text-emerald-600">0 al día</span>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center">
+                    <button onclick="openNetflixUserModal()" class="w-full h-full min-h-[56px] bg-netflix-red hover:bg-netflix-darkRed text-white font-semibold rounded-xl shadow-md flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus text-lg"></i> Agregar Perfil
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla Netflix -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-xs uppercase tracking-wider">
+                                <th class="py-3.5 px-4">Cliente / Perfil</th>
+                                <th class="py-3.5 px-4">Cuota Mensual (RD$)</th>
+                                <th class="py-3.5 px-4 text-center">Pausado / Desvinculado</th>
+                                <th class="py-3.5 px-4 text-center">Estado del Mes</th>
+                                <th class="py-3.5 px-4 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="netflix-list-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+                <div id="netflix-empty-state" class="hidden p-8 text-center text-slate-400">
+                    <i class="fa-brands fa-netflix text-4xl mb-3 opacity-30 text-netflix-red"></i>
+                    <p class="text-base font-medium">No hay perfiles de Netflix agregados.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-100 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+            Control de Deudas & Suscripciones &copy; <span id="footer-year"></span> - Almacenamiento seguro permanente.
+        </div>
+    </footer>
+
+    <!-- MODALES -->
+    <!-- Modal Deudor -->
+    <div id="modal-deudor" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+            <div class="bg-slate-900 text-white p-4 px-6 flex items-center justify-between">
+                <h3 id="modal-deudor-title" class="font-bold text-base flex items-center gap-2"><i class="fa-solid fa-user-plus text-indigo-400"></i> Agregar Deudor</h3>
+                <button onclick="closeDeudorModal()" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-deudor" onsubmit="saveDeudor(event)" class="p-6 space-y-4">
+                <input type="hidden" id="deudor-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Nombre Completo</label>
+                    <input type="text" id="deudor-nombre" required placeholder="Ej. Juan Pérez" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Monto de la Deuda (RD$)</label>
+                    <input type="number" step="0.01" id="deudor-monto" required placeholder="1500" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Concepto / Descripción</label>
+                    <input type="text" id="deudor-concepto" required placeholder="Préstamo personal" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Fecha</label>
+                        <input type="date" id="deudor-fecha" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Estado</label>
+                        <select id="deudor-estado" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500">
+                            <option value="pendiente">Pendiente</option>
+                            <option value="pagado">Pagado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeDeudorModal()" class="px-4 py-2 rounded-xl text-slate-600 text-sm font-semibold">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Netflix User -->
+    <div id="modal-netflix-user" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+            <div class="bg-slate-900 text-white p-4 px-6 flex items-center justify-between">
+                <h3 id="modal-netflix-title" class="font-bold text-base flex items-center gap-2"><i class="fa-brands fa-netflix text-netflix-red"></i> Agregar Perfil</h3>
+                <button onclick="closeNetflixUserModal()" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-netflix-user" onsubmit="saveNetflixUser(event)" class="p-6 space-y-4">
+                <input type="hidden" id="netflix-user-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Nombre del Perfil</label>
+                    <input type="text" id="netflix-user-nombre" required placeholder="Ej. Carlos - Pantalla" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-netflix-red">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Monto Asignado (RD$)</label>
+                    <input type="number" step="0.01" id="netflix-user-monto" required placeholder="300" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-netflix-red">
+                </div>
+                <div class="space-y-3 pt-2">
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span class="text-sm font-semibold text-slate-800">Estado de Pago del Mes</span>
+                        <select id="netflix-user-estado" class="px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white">
+                            <option value="pendiente">Pendiente</option>
+                            <option value="pagado">Pagado</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span class="text-sm font-semibold text-slate-800">Pausado / Desvinculado</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="netflix-user-pausado" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeNetflixUserModal()" class="px-4 py-2 rounded-xl text-slate-600 text-sm font-semibold">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-netflix-red hover:bg-netflix-darkRed text-white text-sm font-semibold shadow-md">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Config Netflix -->
+    <div id="modal-config-netflix" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+            <div class="bg-slate-900 text-white p-4 px-6 flex items-center justify-between">
+                <h3 class="font-bold text-base flex items-center gap-2"><i class="fa-solid fa-sliders text-indigo-400"></i> Ajustes Suscripción</h3>
+                <button onclick="closeConfigNetflixModal()" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-config-netflix" onsubmit="saveConfigNetflix(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Costo Total del Plan (RD$)</label>
+                    <input type="number" step="0.01" id="config-netflix-monto" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Día de Corte Mensual (1 al 31)</label>
+                    <input type="number" min="1" max="31" id="config-netflix-dia" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeConfigNetflixModal()" class="px-4 py-2 rounded-xl text-slate-600 text-sm font-semibold">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold shadow-md">Guardar Ajustes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script JS -->
+    <script>
+        let state = {
+            deudores: [],
+            netflixUsers: [],
+            netflixConfig: { montoPlan: 1200, diaCorte: 15 },
+            filterDeudores: 'todos'
+        };
+
+        window.onload = function() {
+            document.getElementById('footer-year').textContent = new Date().getFullYear();
+            document.getElementById('deudor-fecha').value = new Date().toISOString().split('T')[0];
+            loadLocalStorage();
+            renderDeudores();
+            renderNetflix();
+            startCountdownTimer();
+        };
+
+        function saveLocalStorage() {
+            localStorage.setItem('cobros_app_state', JSON.stringify(state));
+        }
+
+        function loadLocalStorage() {
+            const saved = localStorage.getItem('cobros_app_state');
+            if (saved) {
+                try {
+                    state = JSON.parse(saved);
+                    if (!state.netflixConfig) state.netflixConfig = { montoPlan: 1200, diaCorte: 15 };
+                } catch (e) { console.error(e); }
+            } else {
+                state.deudores = [
+                    { id: '1', nombre: 'Carlos Mendoza', monto: 2500, concepto: 'Préstamo efectivo', fecha: '2026-10-15', estado: 'pendiente' }
+                ];
+                state.netflixUsers = [
+                    { id: 'n1', nombre: 'Pedro (Pantalla 1)', monto: 300, estado: 'pagado', pausado: false }
+                ];
+                saveLocalStorage();
+            }
+        }
+
+        function switchTab(tab) {
+            const btnD = document.getElementById('tab-deudores-btn');
+            const btnN = document.getElementById('tab-netflix-btn');
+            const btnDm = document.getElementById('tab-deudores-btn-m');
+            const btnNm = document.getElementById('tab-netflix-btn-m');
+            const secD = document.getElementById('section-deudores');
+            const secN = document.getElementById('section-netflix');
+
+            if (tab === 'deudores') {
+                secD.classList.remove('hidden');
+                secN.classList.add('hidden');
+                btnD.className = btnDm.className = "px-4 py-2 sm:flex-1 rounded-lg text-sm sm:text-xs font-medium flex items-center justify-center gap-2 bg-indigo-600 text-white shadow";
+                btnN.className = btnNm.className = "px-4 py-2 sm:flex-1 rounded-lg text-sm sm:text-xs font-medium flex items-center justify-center gap-2 text-slate-300 hover:text-white";
+            } else {
+                secN.classList.remove('hidden');
+                secD.classList.add('hidden');
+                btnN.className = btnNm.className = "px-4 py-2 sm:flex-1 rounded-lg text-sm sm:text-xs font-medium flex items-center justify-center gap-2 bg-netflix-red text-white shadow";
+                btnD.className = btnDm.className = "px-4 py-2 sm:flex-1 rounded-lg text-sm sm:text-xs font-medium flex items-center justify-center gap-2 text-slate-300 hover:text-white";
+            }
+        }
+
+        function toggleExportMenu() {
+            const menu = document.getElementById('export-dropdown');
+            menu.classList.toggle('hidden');
+        }
+
+        // Exportar a Excel (CSV)
+        function exportToExcel() {
+            let csv = 'Tipo,Nombre,Concepto,Fecha,Monto,Estado\n';
+            state.deudores.forEach(d => {
+                csv += `Deuda,"${d.nombre}","${d.concepto}",${d.fecha},${d.monto},${d.estado}\n`;
+            });
+            state.netflixUsers.forEach(n => {
+                csv += `Netflix,"${n.nombre}","${n.pausado ? 'Pausado' : 'Activo'}",-,${n.monto},${n.estado}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ControlCobros_Reporte_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            toggleExportMenu();
+        }
+
+        // Exportar a PDF / Imprimir
+        function exportToPDF() {
+            toggleExportMenu();
+            window.print();
+        }
+
+        // Sincronización Cloud / Descarga de Respaldo JSON
+        function exportBackupJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = `respaldo_control_cobros_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            toggleExportMenu();
+        }
+
+        // Cargar Respaldo JSON en cualquier dispositivo
+        function importBackupJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed && parsed.deudores && parsed.netflixUsers) {
+                        state = parsed;
+                        saveLocalStorage();
+                        renderDeudores();
+                        renderNetflix();
+                        alert('¡Datos restaurados con éxito en este dispositivo!');
+                    } else {
+                        alert('El archivo no es válido.');
+                    }
+                } catch (err) {
+                    alert('Error al leer el archivo de respaldo.');
+                }
+            };
+            reader.readAsText(file);
+            toggleExportMenu();
+        }
+
+        function formatMoney(amount) {
+            return 'RD$ ' + Number(amount || 0).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Deudores
+        function setFilterDeudores(filter) {
+            state.filterDeudores = filter;
+            ['todos', 'pendiente', 'pagado'].forEach(f => {
+                const btn = document.getElementById(`filter-btn-${f}`);
+                btn.className = f === filter ? "flex-1 sm:flex-initial px-3 py-1.5 text-xs font-semibold rounded-lg bg-white shadow-sm text-indigo-600" : "flex-1 sm:flex-initial px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600";
+            });
+            renderDeudores();
+        }
+
+        function renderDeudores() {
+            const tbody = document.getElementById('deudores-list-body');
+            const emptyState = document.getElementById('deudores-empty-state');
+            const searchVal = document.getElementById('search-deudor').value.toLowerCase();
+
+            let filtered = state.deudores.filter(item => {
+                const matchesFilter = state.filterDeudores === 'todos' || item.estado === state.filterDeudores;
+                const matchesSearch = item.nombre.toLowerCase().includes(searchVal) || item.concepto.toLowerCase().includes(searchVal);
+                return matchesFilter && matchesSearch;
+            });
+
+            let totalPendiente = 0, countPendiente = 0, totalPagado = 0, countPagado = 0;
+            state.deudores.forEach(item => {
+                if (item.estado === 'pendiente') { totalPendiente += Number(item.monto); countPendiente++; }
+                else { totalPagado += Number(item.monto); countPagado++; }
+            });
+
+            document.getElementById('stat-general-pendiente').textContent = formatMoney(totalPendiente);
+            document.getElementById('stat-general-count-pendiente').textContent = `${countPendiente} deudores`;
+            document.getElementById('stat-general-pagado').textContent = formatMoney(totalPagado);
+            document.getElementById('stat-general-count-pagado').textContent = `${countPagado} pagados`;
+            document.getElementById('stat-general-total').textContent = formatMoney(totalPendiente + totalPagado);
+
+            tbody.innerHTML = '';
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                filtered.forEach(item => {
+                    const tr = document.createElement('tr');
+                    const isPagado = item.estado === 'pagado';
+                    const badgeClass = isPagado ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200';
+                    tr.innerHTML = `
+                        <td class="py-3.5 px-4 font-semibold text-slate-800">${escapeHtml(item.nombre)}</td>
+                        <td class="py-3.5 px-4 text-slate-600">${escapeHtml(item.concepto)}</td>
+                        <td class="py-3.5 px-4 text-slate-500 text-xs">${item.fecha}</td>
+                        <td class="py-3.5 px-4 font-bold text-slate-900">${formatMoney(item.monto)}</td>
+                        <td class="py-3.5 px-4 text-center">
+                            <button onclick="toggleDeudorEstado('${item.id}')" class="px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}">
+                                <i class="fa-solid ${isPagado ? 'fa-check' : 'fa-clock'}"></i> ${isPagado ? 'Pagado' : 'Pendiente'}
+                            </button>
+                        </td>
+                        <td class="py-3.5 px-4 text-right space-x-1">
+                            <button onclick="openDeudorModal('${item.id}')" class="p-2 text-slate-400 hover:text-indigo-600 rounded-lg"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteDeudor('${item.id}')" class="p-2 text-slate-400 hover:text-rose-600 rounded-lg"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        function toggleDeudorEstado(id) {
+            const idx = state.deudores.findIndex(d => d.id === id);
+            if (idx !== -1) {
+                state.deudores[idx].estado = state.deudores[idx].estado === 'pagado' ? 'pendiente' : 'pagado';
+                saveLocalStorage();
+                renderDeudores();
+            }
+        }
+
+        function openDeudorModal(id = null) {
+            document.getElementById('form-deudor').reset();
+            document.getElementById('deudor-id').value = '';
+            document.getElementById('deudor-fecha').value = new Date().toISOString().split('T')[0];
+            if (id) {
+                const item = state.deudores.find(d => d.id === id);
+                if (item) {
+                    document.getElementById('deudor-id').value = item.id;
+                    document.getElementById('deudor-nombre').value = item.nombre;
+                    document.getElementById('deudor-monto').value = item.monto;
+                    document.getElementById('deudor-concepto').value = item.concepto;
+                    document.getElementById('deudor-fecha').value = item.fecha;
+                    document.getElementById('deudor-estado').value = item.estado;
+                    document.getElementById('modal-deudor-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-indigo-400"></i> Editar Deudor`;
+                }
+            } else {
+                document.getElementById('modal-deudor-title').innerHTML = `<i class="fa-solid fa-user-plus text-indigo-400"></i> Agregar Deudor`;
+            }
+            document.getElementById('modal-deudor').classList.remove('hidden');
+        }
+
+        function closeDeudorModal() { document.getElementById('modal-deudor').classList.add('hidden'); }
+
+        function saveDeudor(e) {
+            e.preventDefault();
+            const id = document.getElementById('deudor-id').value;
+            const data = {
+                id: id || Date.now().toString(),
+                nombre: document.getElementById('deudor-nombre').value.trim(),
+                monto: parseFloat(document.getElementById('deudor-monto').value),
+                concepto: document.getElementById('deudor-concepto').value.trim(),
+                fecha: document.getElementById('deudor-fecha').value,
+                estado: document.getElementById('deudor-estado').value
+            };
+            if (id) {
+                const idx = state.deudores.findIndex(d => d.id === id);
+                if (idx !== -1) state.deudores[idx] = data;
+            } else {
+                state.deudores.unshift(data);
+            }
+            saveLocalStorage();
+            renderDeudores();
+            closeDeudorModal();
+        }
+
+        function deleteDeudor(id) {
+            if (confirm('¿Estás seguro de eliminar este registro permanentemente?')) {
+                state.deudores = state.deudores.filter(d => d.id !== id);
+                saveLocalStorage();
+                renderDeudores();
+            }
+        }
+
+        // Netflix
+        function renderNetflix() {
+            const tbody = document.getElementById('netflix-list-body');
+            const emptyState = document.getElementById('netflix-empty-state');
+            document.getElementById('netflix-due-day-display').textContent = state.netflixConfig.diaCorte;
+            document.getElementById('stat-netflix-total-plan').textContent = formatMoney(state.netflixConfig.montoPlan);
+
+            let porCobrar = 0, recaudado = 0, pagadosCount = 0, activosCount = 0;
+            tbody.innerHTML = '';
+
+            if (state.netflixUsers.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                state.netflixUsers.forEach(user => {
+                    const isPausado = user.pausado;
+                    const isPagado = user.estado === 'pagado';
+                    const monto = Number(user.monto);
+
+                    if (!isPausado) {
+                        activosCount++;
+                        porCobrar += monto;
+                        if (isPagado) { recaudado += monto; pagadosCount++; }
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.className = isPausado ? "bg-slate-50/60 opacity-60" : "";
+                    tr.innerHTML = `
+                        <td class="py-3.5 px-4 font-semibold ${isPausado ? 'line-through text-slate-400' : 'text-slate-800'}">${escapeHtml(user.nombre)}</td>
+                        <td class="py-3.5 px-4 font-bold ${isPausado ? 'text-slate-400' : 'text-slate-900'}">${formatMoney(user.monto)}</td>
+                        <td class="py-3.5 px-4 text-center">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" onchange="toggleNetflixPausa('${user.id}')" ${isPausado ? 'checked' : ''} class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                            </label>
+                            <span class="block text-[10px] ${isPausado ? 'text-amber-600 font-bold' : 'text-slate-400'}">${isPausado ? 'Pausado' : 'Activo'}</span>
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            ${isPausado ? '<span class="text-xs text-slate-400">Desvinculado</span>' : `
+                                <button onclick="toggleNetflixEstado('${user.id}')" class="px-3 py-1 rounded-full text-xs font-bold border ${isPagado ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}">
+                                    <i class="fa-solid ${isPagado ? 'fa-check' : 'fa-clock'}"></i> ${isPagado ? 'Pagado' : 'Pendiente'}
+                                </button>
+                            `}
+                        </td>
+                        <td class="py-3.5 px-4 text-right space-x-1">
+                            <button onclick="openNetflixUserModal('${user.id}')" class="p-2 text-slate-400 hover:text-indigo-600 rounded-lg"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteNetflixUser('${user.id}')" class="p-2 text-slate-400 hover:text-rose-600 rounded-lg"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('stat-netflix-por-cobrar').textContent = formatMoney(porCobrar);
+            document.getElementById('stat-netflix-sub-cobrar').textContent = `${activosCount} perfiles activos`;
+            document.getElementById('stat-netflix-recaudado').textContent = formatMoney(recaudado);
+            document.getElementById('stat-netflix-count-pagados').textContent = `${pagadosCount} de ${activosCount} al día`;
+        }
+
+        function toggleNetflixPausa(id) {
+            const idx = state.netflixUsers.findIndex(u => u.id === id);
+            if (idx !== -1) { state.netflixUsers[idx].pausado = !state.netflixUsers[idx].pausado; saveLocalStorage(); renderNetflix(); }
+        }
+
+        function toggleNetflixEstado(id) {
+            const idx = state.netflixUsers.findIndex(u => u.id === id);
+            if (idx !== -1 && !state.netflixUsers[idx].pausado) {
+                state.netflixUsers[idx].estado = state.netflixUsers[idx].estado === 'pagado' ? 'pendiente' : 'pagado';
+                saveLocalStorage();
+                renderNetflix();
+            }
+        }
+
+        function openNetflixUserModal(id = null) {
+            document.getElementById('form-netflix-user').reset();
+            document.getElementById('netflix-user-id').value = '';
+            if (id) {
+                const item = state.netflixUsers.find(u => u.id === id);
+                if (item) {
+                    document.getElementById('netflix-user-id').value = item.id;
+                    document.getElementById('netflix-user-nombre').value = item.nombre;
+                    document.getElementById('netflix-user-monto').value = item.monto;
+                    document.getElementById('netflix-user-estado').value = item.estado;
+                    document.getElementById('netflix-user-pausado').checked = item.pausado;
+                    document.getElementById('modal-netflix-title').innerHTML = `<i class="fa-brands fa-netflix text-netflix-red"></i> Editar Perfil`;
+                }
+            } else {
+                document.getElementById('modal-netflix-title').innerHTML = `<i class="fa-brands fa-netflix text-netflix-red"></i> Agregar Perfil`;
+            }
+            document.getElementById('modal-netflix-user').classList.remove('hidden');
+        }
+
+        function closeNetflixUserModal() { document.getElementById('modal-netflix-user').classList.add('hidden'); }
+
+        function saveNetflixUser(e) {
+            e.preventDefault();
+            const id = document.getElementById('netflix-user-id').value;
+            const data = {
+                id: id || 'n_' + Date.now().toString(),
+                nombre: document.getElementById('netflix-user-nombre').value.trim(),
+                monto: parseFloat(document.getElementById('netflix-user-monto').value),
+                estado: document.getElementById('netflix-user-estado').value,
+                pausado: document.getElementById('netflix-user-pausado').checked
+            };
+            if (id) {
+                const idx = state.netflixUsers.findIndex(u => u.id === id);
+                if (idx !== -1) state.netflixUsers[idx] = data;
+            } else {
+                state.netflixUsers.push(data);
+            }
+            saveLocalStorage();
+            renderNetflix();
+            closeNetflixUserModal();
+        }
+
+        function deleteNetflixUser(id) {
+            if (confirm('¿Eliminar este perfil permanentemente?')) {
+                state.netflixUsers = state.netflixUsers.filter(u => u.id !== id);
+                saveLocalStorage();
+                renderNetflix();
+            }
+        }
+
+        function openConfigNetflixModal() {
+            document.getElementById('config-netflix-monto').value = state.netflixConfig.montoPlan;
+            document.getElementById('config-netflix-dia').value = state.netflixConfig.diaCorte;
+            document.getElementById('modal-config-netflix').classList.remove('hidden');
+        }
+
+        function closeConfigNetflixModal() { document.getElementById('modal-config-netflix').classList.add('hidden'); }
+
+        function saveConfigNetflix(e) {
+            e.preventDefault();
+            const monto = parseFloat(document.getElementById('config-netflix-monto').value);
+            const dia = parseInt(document.getElementById('config-netflix-dia').value);
+            if (dia >= 1 && dia <= 31) {
+                state.netflixConfig.montoPlan = monto;
+                state.netflixConfig.diaCorte = dia;
+                saveLocalStorage();
+                renderNetflix();
+                closeConfigNetflixModal();
+            }
+        }
+
+        function startCountdownTimer() {
+            function updateTimer() {
+                const now = new Date();
+                let targetDate = new Date(now.getFullYear(), now.getMonth(), state.netflixConfig.diaCorte || 15, 23, 59, 59);
+                if (now > targetDate) targetDate = new Date(now.getFullYear(), now.getMonth() + 1, state.netflixConfig.diaCorto || 15, 23, 59, 59);
+                const diff = targetDate - now;
+                if (diff > 0) {
+                    document.getElementById('countdown-days').textContent = String(Math.floor(diff / (1000 * 60 * 60 * 24))).padStart(2, '0');
+                    document.getElementById('countdown-hours').textContent = String(Math.floor((diff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
+                    document.getElementById('countdown-minutes').textContent = String(Math.floor((diff / 1000 / 60) % 60)).padStart(2, '0');
+                }
+            }
+            updateTimer();
+            setInterval(updateTimer, 30000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text || '';
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
